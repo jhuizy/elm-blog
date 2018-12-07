@@ -3,8 +3,22 @@ import Browser.Navigation as Nav
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Url
+import Url.Parser exposing (..)
 
 import BlogPost as BP
+
+type Route =
+  Home
+  | BlogPostList
+  | BlogPost Int
+ 
+routeParser : Parser (Route -> a) a
+routeParser = 
+  oneOf
+    [ Url.Parser.map Home (Url.Parser.s "home") 
+    , Url.Parser.map BlogPostList (Url.Parser.s "blogs")
+    , Url.Parser.map BlogPost (Url.Parser.s "blogs" </> int)
+    ]
 
 -- MAIN
 
@@ -23,13 +37,13 @@ main =
 
 type alias Model =
   { key : Nav.Key
-  , url : Url.Url
+  , route : Maybe Route
   }
 
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
-  ( Model key url, Cmd.none )
+  ( Model key (Just Home), Cmd.none )
 
 -- UPDATE
 
@@ -50,7 +64,7 @@ update msg model =
           ( model, Nav.load href )
 
     UrlChanged url ->
-      ( { model | url = url }
+      ( { model | route = parse routeParser url }
       , Cmd.none
       )
 
@@ -62,22 +76,39 @@ subscriptions _ =
 
 -- VIEW
 
+routeView : Maybe Route -> Html Msg
+routeView mayRoute = case mayRoute of
+  Just route -> 
+    case route of 
+      Home -> div [] [ text "Home is where the heart is" ]
+      BlogPostList -> div [] [ text "Listing all the blogs" ]
+      BlogPost id -> div [] [ text <| "blog with id " ++ (String.fromInt id) ]
+  Nothing ->
+    div [] [ text "404" ]
+
 view : Model -> Browser.Document Msg
 view model =
   { title = "URL Interceptor"
   , body =
       [ text "The current URL is: "
-      , b [] [ text (Url.toString model.url) ]
-      , BP.viewBlogPost <| BP.BlogPost "This is the title" "This is the body"
+      , navbar
+      , routeView model.route
       , ul []
           [ viewLink "/home"
-          , viewLink "/profile"
-          , viewLink "/reviews/the-century-of-the-self"
-          , viewLink "/reviews/public-opinion"
-          , viewLink "/reviews/shah-of-shahs"
+          , viewLink "/blogs"
+          , viewLink "/blogs/1"
           ]
       ]
   }
+
+navbar : Html Msg
+navbar =
+  div [ class "container" ] 
+    [ div [ class "row" ] 
+      [ div [ class "mx-auto text-center header-text"] [ text "My Blog" ] 
+      ] 
+    ]
+  
 
 viewLink : String -> Html msg
 viewLink path =
